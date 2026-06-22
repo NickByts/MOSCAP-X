@@ -586,7 +586,7 @@ def _render_phase_2_metrics(summary: Phase2Summary) -> None:
         ("Cox", summary.cox, "F"),
         ("Vfb", summary.vfb, "V"),
 
-        ("Fermi Potential", summary.phi_f, "V"),
+       
         ("Debye Length", summary.ld, "cm"),
         ("Maximum Depletion Width", summary.wd, "cm"),
 
@@ -601,7 +601,7 @@ def _render_phase_2_metrics(summary: Phase2Summary) -> None:
     cards = [
         *st.columns(3),
         *st.columns(3),
-        *st.columns(3),
+        *st.columns(2),
         *st.columns(2),
     ]
     for card, (label, value, unit) in zip(cards, metrics):
@@ -618,7 +618,7 @@ def _format_engineering(value: float, unit: str) -> str:
         return f"{numeric_value:.4g} {unit}"
 
     exponent = int(np.floor(np.log10(magnitude) / 3.0) * 3)
-    mantissa = numeric_value / (10.0**exponent)
+    mantissa = numeric_value / (10.0**exponent)git
     exponent_text = str(exponent) if exponent < 0 else f"+{exponent}"
     return f"{mantissa:.4g}E{exponent_text} {unit}"
 
