@@ -618,7 +618,7 @@ def _format_engineering(value: float, unit: str) -> str:
         return f"{numeric_value:.4g} {unit}"
 
     exponent = int(np.floor(np.log10(magnitude) / 3.0) * 3)
-    mantissa = numeric_value / (10.0**exponent)git
+    mantissa = numeric_value / (10.0**exponent)
     exponent_text = str(exponent) if exponent < 0 else f"+{exponent}"
     return f"{mantissa:.4g}E{exponent_text} {unit}"
 
