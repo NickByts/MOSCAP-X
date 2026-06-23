@@ -596,8 +596,7 @@ def _render_phase_2_inputs():
 
 def _render_phase_2_metrics(summary: Phase2Summary) -> None:
     metrics = (
-        ("Cox", summary.cox, "F"),
-        ("Vfb", summary.vfb, "V"),
+        
         ("Diffusion Potential", summary.vd, "V"),
        
         ("Debye Length", summary.ld, "cm"),
@@ -616,7 +615,7 @@ def _render_phase_2_metrics(summary: Phase2Summary) -> None:
         *st.columns(3),
         *st.columns(3),
         *st.columns(3),
-        *st.columns(2),
+        *st.columns(3),
     ]
     for card, (label, value, unit) in zip(cards, metrics):
         card.metric(label, _format_engineering(value, unit))
