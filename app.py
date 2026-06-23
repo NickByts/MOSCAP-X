@@ -437,12 +437,12 @@ def _render_phase_2_section(
         temperature,
         intrinsic_concentration,
         epsilon_r,
+        substrate_type,
         cox,
         vfb,
         cm,
         v0,
         conductance_g,
-
     ) = _render_phase_2_inputs()
 
     phase2_inputs = {
@@ -450,6 +450,7 @@ def _render_phase_2_section(
         "electron_affinity_ev": electron_affinity,
         "bandgap_ev": bandgap,
         "temperature_k": temperature,
+        "substrate_type": substrate_type,
         "intrinsic_concentration_cm3": intrinsic_concentration,
         "epsilon_r": epsilon_r,
         "cox_f": cox,
@@ -467,14 +468,17 @@ def _render_phase_2_section(
             Phase2Inputs,
             Phase2MaterialProperties,
         )
+        if substrate_type == "Auto Detect":
+            substrate_type = phase1b_summary.substrate_type
 
         phase2_inputs = Phase2Inputs(
             area_cm2=device_area_cm2,
             temperature_k=temperature,
             doping_cm3=phase1b_summary.doping.doping_value,
-            substrate_type=phase1b_summary.substrate_type,
-            cox_f_cm2=cox,
+            substrate_type=substrate_type,
+            cox_f=cox,
             vfb_v=vfb,
+            v0_v=v0,
             phi_m_ev=metal_work_function,
         )
 
@@ -517,7 +521,15 @@ def _render_phase_2_inputs():
             "Electron Affinity χ (eV)",
             value=4.05,
         )
-
+        substrate_type = st.selectbox(
+            "Substrate Type",
+            options=[
+                "Auto Detect",
+                "P-Type",
+                "N-Type",
+            ],
+            index=0,
+        )
         bandgap = row1[2].number_input(
             "Bandgap Eg (eV)",
             value=1.12,
@@ -574,6 +586,7 @@ def _render_phase_2_inputs():
         float(temperature),
         float(intrinsic_concentration),
         float(epsilon_r),
+        substrate_type,
         float(cox),
         float(vfb),
         float(cm),
@@ -585,12 +598,13 @@ def _render_phase_2_metrics(summary: Phase2Summary) -> None:
     metrics = (
         ("Cox", summary.cox, "F"),
         ("Vfb", summary.vfb, "V"),
-
+        ("Diffusion Potential", summary.vd, "V"),
        
         ("Debye Length", summary.ld, "cm"),
-        ("Maximum Depletion Width", summary.wd, "cm"),
+        ("Fermi Potential", summary.phi_f, "φF"),
+        ("Depletion Width", summary.wd, "cm"),
 
-        ("Maximum Electric Field", summary.em, "V/cm"),
+        ("Junction Electric Field", summary.em, "V/cm"),
         ("Semiconductor Capacitance", summary.cs, "F"),
         ("Flat-Band Capacitance", summary.cfb, "F"),
 
@@ -601,7 +615,7 @@ def _render_phase_2_metrics(summary: Phase2Summary) -> None:
     cards = [
         *st.columns(3),
         *st.columns(3),
-        *st.columns(2),
+        *st.columns(3),
         *st.columns(2),
     ]
     for card, (label, value, unit) in zip(cards, metrics):

@@ -7,14 +7,18 @@ from .capacitance_extractor import (
     calculate_semiconductor_capacitance,
 )
 from .debye_extractor import calculate_debye_length
-from .depletion_extractor import calculate_max_depletion_width
-from .electric_field_extractor import calculate_max_electric_field
+from .depletion_extractor import calculate_depletion_width
+from .electric_field_extractor import calculate_junction_electric_field
 from .fermi_extractor import calculate_fermi_potential
 from .flatband_extractor import calculate_flatband_voltage
 from .material_extractor import calculate_semiconductor_permittivity
 from .oxide_charge_extractor import (
     calculate_effective_charge_density,
     calculate_effective_oxide_charge,
+)
+from .phase2_constants import (
+    BOLTZMANN_CONSTANT_J_PER_K,
+    ELEMENTARY_CHARGE_C,
 )
 from .phase2_models import Phase2Inputs, Phase2MaterialProperties
 from .phase2_results import Phase2Results
@@ -40,29 +44,48 @@ def calculate_phase2_summary(
         materials.intrinsic_concentration_cm3,
         inputs.temperature_k,
     )
+
+    thermal_voltage_v = (
+        BOLTZMANN_CONSTANT_J_PER_K
+        * inputs.temperature_k
+        / ELEMENTARY_CHARGE_C
+    )
+
+    vd_v = inputs.v0_v + thermal_voltage_v
+
     ld_cm = calculate_debye_length(
         inputs.doping_cm3,
         inputs.temperature_k,
         inputs.substrate_type,
         permittivity_f_per_cm=permittivity_f_per_cm,
     )
-    wd_cm = calculate_max_depletion_width(
-        phi_f_v,
+    wd_cm = calculate_depletion_width(
+        vd_v,
         inputs.doping_cm3,
         permittivity_f_per_cm=permittivity_f_per_cm,
     )
-    em_v_cm = calculate_max_electric_field(
-        inputs.doping_cm3,
+
+    thermal_voltage_v = (
+        BOLTZMANN_CONSTANT_J_PER_K
+        * inputs.temperature_k
+        / ELEMENTARY_CHARGE_C
+    )
+
+    vd_v = inputs.v0_v + thermal_voltage_v
+
+
+    em_v_cm = calculate_junction_electric_field(
+        inputs.v0_v,
         wd_cm,
+    )
+    cs_f = calculate_semiconductor_capacitance(
+        inputs.area_cm2,
+        ld_cm,
         permittivity_f_per_cm=permittivity_f_per_cm,
     )
-    cs_f_cm2 = calculate_semiconductor_capacitance(
-        wd_cm,
-        permittivity_f_per_cm=permittivity_f_per_cm,
-    )
-    cfb_f_cm2 = calculate_flatband_capacitance(
-        inputs.cox_f_cm2,
-        cs_f_cm2,
+    cfb_f = calculate_flatband_capacitance(
+        inputs.cox_f,
+        cs_f,
     )
     flatband = calculate_flatband_voltage(
         inputs.phi_m_ev,
@@ -72,25 +95,28 @@ def calculate_phase2_summary(
         inputs.substrate_type,
     )
     qeff_c_cm2 = calculate_effective_oxide_charge(
-        inputs.cox_f_cm2,
+        inputs.cox_f,
         inputs.vfb_v,
         flatband.phi_ms,
+        inputs.area_cm2,
     )
     neff_cm2 = calculate_effective_charge_density(qeff_c_cm2)
 
     return Phase2Results(
-        cox_f_cm2=inputs.cox_f_cm2,
+        cox_f=inputs.cox_f,
         vfb_v=inputs.vfb_v,
         phi_f_v=phi_f_v,
         ld_cm=ld_cm,
         wd_cm=wd_cm,
         em_v_cm=em_v_cm,
-        cs_f_cm2=cs_f_cm2,
-        cfb_f_cm2=cfb_f_cm2,
+        cs_f=cs_f,
+        cfb_f=cfb_f,
+        vd_v=vd_v,
         phi_ms_v=flatband.phi_ms,
         qeff_c_cm2=qeff_c_cm2,
         neff_cm2=neff_cm2,
-    )
+        
+    )   
 
 
 def calculate_phase2_results(
@@ -109,7 +135,7 @@ def _validate_phase2_inputs(
     validate_finite_positive(inputs.temperature_k, "Temperature")
     validate_finite_positive(inputs.doping_cm3, "Doping concentration")
     validate_substrate_type(inputs.substrate_type)
-    validate_finite_positive(inputs.cox_f_cm2, "Oxide capacitance density")
+    validate_finite_positive(inputs.cox_f, "Oxide capacitance")
     validate_finite(inputs.vfb_v, "Flat-band voltage")
     validate_finite(inputs.phi_m_ev, "Metal work function")
 

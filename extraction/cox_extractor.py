@@ -26,12 +26,12 @@ def calculate_cox(
     capacitance_array: Sequence[float] | np.ndarray,
     top_fraction: float = 0.10,
     *,
-    capacitance_unit: str = "F/cm^2",
+    capacitance_unit: str = "F",
 ) -> CoxResult:
-    """Estimate areal Cox from the robust mean of accumulation capacitance."""
-    if capacitance_unit not in {"F/cm^2", "F"}:
+    """Estimate oxide capacitance Cox from the robust mean of accumulation capacitance."""
+    if capacitance_unit not in {"F", "F"}:
         raise ValueError(
-            "Capacitance must use 'F' values normalized per cm^2; "
+            "Capacitance must use 'F'; "
             f"received '{capacitance_unit}'."
         )
     capacitance = validate_array(

@@ -46,11 +46,19 @@ def calculate_debye_length(
     )
     validate_substrate_type(substrate_type)
 
+    thermal_voltage = (
+        BOLTZMANN_CONSTANT_J_PER_K
+        * temperature
+        / ELEMENTARY_CHARGE_C
+    )
+
     radicand = (
         permittivity
-        * BOLTZMANN_CONSTANT_J_PER_K
-        * temperature
-        / (ELEMENTARY_CHARGE_C**2 * doping)
+        * thermal_voltage
+        / (
+            ELEMENTARY_CHARGE_C
+            * doping
+        )
     )
     if radicand <= 0.0 or not np.isfinite(radicand):
         raise ValueError("Debye-length radicand must be positive and finite.")

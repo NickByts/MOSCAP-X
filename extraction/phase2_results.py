@@ -9,9 +9,11 @@ from dataclasses import dataclass
 class Phase2Results:
     """Complete Phase 2 result using consistent CGS and areal units."""
 
-    cox_f_cm2: float
+    cox_f: float
 
     vfb_v: float
+
+    vd_v: float
 
     phi_f_v: float
 
@@ -21,9 +23,9 @@ class Phase2Results:
 
     em_v_cm: float
 
-    cs_f_cm2: float
+    cs_f: float
 
-    cfb_f_cm2: float
+    cfb_f: float
 
     phi_ms_v: float
 
@@ -49,11 +51,11 @@ class Phase2Results:
 
     @property
     def cs(self) -> float:
-        return self.cs_f_cm2
+        return self.cs_f
 
     @property
     def cfb(self) -> float:
-        return self.cfb_f_cm2
+        return self.cfb_f
 
     @property
     def phi_ms(self) -> float:
@@ -69,9 +71,13 @@ class Phase2Results:
 
     @property
     def cox(self) -> float:
-        return self.cox_f_cm2
+        return self.cox_f
 
 
     @property
     def vfb(self) -> float:
         return self.vfb_v
+    
+    @property
+    def vd(self) -> float:
+        return self.vd_v

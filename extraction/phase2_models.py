@@ -14,10 +14,10 @@ class Phase2Inputs:
 
     doping_cm3: float
     substrate_type: str
-
-    cox_f_cm2: float
+    v0_v: float
+    cox_f: float
     vfb_v: float
-
+    v0_v: float
     phi_m_ev: float
 
 

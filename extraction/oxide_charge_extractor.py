@@ -26,7 +26,7 @@ def calculate_effective_oxide_charge(
     phi_ms: float,
     area_cm2: float | None = None,
     *,
-    capacitance_unit: str = "F/cm^2",
+    capacitance_unit: str = "F",
     area_unit: str = "cm^2",
 ) -> float:
     """Calculate effective oxide charge density in C/cm^2.
@@ -34,18 +34,18 @@ def calculate_effective_oxide_charge(
     Cox is interpreted as F/cm^2. Supplying ``area_cm2`` enables the legacy
     total-capacitance adapter, where Cox is converted from F to F/cm^2.
     """
-    if capacitance_unit not in {"F/cm^2", "F"}:
-        validate_unit(capacitance_unit, "F/cm^2", "Oxide capacitance")
+    if capacitance_unit not in {"F", "F"}:
+        validate_unit(capacitance_unit, "F", "Oxide capacitance")
     cox = validate_finite_positive(cox_f, "Oxide capacitance")
     flatband_voltage = validate_finite(vfb, "Flat-band voltage")
     work_function_difference = validate_finite(phi_ms, "phi_ms")
     if area_cm2 is not None:
         validate_unit(area_unit, "cm^2", "Area")
         area = validate_finite_positive(area_cm2, "Device area")
-        cox = cox / area
+        
 
-    charge_density = cox * (
-        flatband_voltage - work_function_difference
+    charge_density = (cox / area ) * (
+        work_function_difference - flatband_voltage
     )
     if not np.isfinite(charge_density):
         raise ValueError("Calculated effective oxide charge is non-finite.")

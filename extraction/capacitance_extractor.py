@@ -20,53 +20,58 @@ except ImportError:
 
 def calculate_semiconductor_capacitance(
     area_cm2: float,
-    depletion_width_cm: float | None = None,
+    debye_length_cm: float,
     *,
     permittivity_f_per_cm: float = SILICON_PERMITTIVITY_F_PER_CM,
     area_unit: str = "cm^2",
     length_unit: str = "cm",
     permittivity_unit: str = "F/cm",
 ) -> float:
-    """Calculate semiconductor depletion capacitance density in F/cm^2.
-
-    The preferred call is ``calculate_semiconductor_capacitance(width_cm)``.
-    The legacy two-positional-argument call ``(area_cm2, width_cm)`` remains
-    supported and returns total capacitance in Farads.
     """
-    validate_unit(length_unit, "cm", "Depletion width")
+    Cs = εs * Area / Ld
+    """
+
+    validate_unit(area_unit, "cm^2", "Area")
+    validate_unit(length_unit, "cm", "Debye Length")
     validate_unit(permittivity_unit, "F/cm", "Permittivity")
-    legacy_area: float | None = None
-    if depletion_width_cm is None:
-        width = validate_finite_positive(area_cm2, "Depletion width")
-    else:
-        validate_unit(area_unit, "cm^2", "Area")
-        legacy_area = validate_finite_positive(area_cm2, "Device area")
-        width = validate_finite_positive(depletion_width_cm, "Depletion width")
+
+    area = validate_finite_positive(
+        area_cm2,
+        "Device area",
+    )
+
+    debye_length = validate_finite_positive(
+        debye_length_cm,
+        "Debye length",
+    )
+
     permittivity = validate_finite_positive(
         permittivity_f_per_cm,
         "Semiconductor permittivity",
     )
 
-    capacitance_density = permittivity / width
     capacitance = (
-        capacitance_density
-        if legacy_area is None
-        else capacitance_density * legacy_area
+        permittivity
+        * area
+        / debye_length
     )
-    if not np.isfinite(capacitance):
-        raise ValueError("Calculated semiconductor capacitance is non-finite.")
-    return float(capacitance)
 
+    if not np.isfinite(capacitance):
+        raise ValueError(
+            "Calculated semiconductor capacitance is non-finite."
+        )
+
+    return float(capacitance)
 
 def calculate_flatband_capacitance(
     cox_f: float,
     semiconductor_capacitance_f: float,
     *,
-    capacitance_unit: str = "F/cm^2",
+    capacitance_unit: str = "F",
 ) -> float:
-    """Calculate areal flat-band capacitance in F/cm^2."""
-    if capacitance_unit not in {"F/cm^2", "F"}:
-        validate_unit(capacitance_unit, "F/cm^2", "Capacitance")
+    """Calculate flat-band capacitance in F."""
+    if capacitance_unit not in {"F", "F"}:
+        validate_unit(capacitance_unit, "F", "Capacitance")
     cox = validate_finite_positive(cox_f, "Oxide capacitance")
     semiconductor_capacitance = validate_finite_positive(
         semiconductor_capacitance_f,
