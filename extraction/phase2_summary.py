@@ -16,10 +16,22 @@ from .oxide_charge_extractor import (
     calculate_effective_charge_density,
     calculate_effective_oxide_charge,
 )
+
+from .barrier_lowering_extractor import (
+    calculate_image_force_barrier_lowering,
+)
+
 from .phase2_constants import (
     BOLTZMANN_CONSTANT_J_PER_K,
     ELEMENTARY_CHARGE_C,
 )
+from .fermi_level_extractor import (
+    calculate_fermi_level,
+)
+from .barrier_height_extractor import (
+    calculate_barrier_height,
+)
+
 from .phase2_models import Phase2Inputs, Phase2MaterialProperties
 from .phase2_results import Phase2Results
 from .phase2_validation import (
@@ -65,19 +77,28 @@ def calculate_phase2_summary(
         permittivity_f_per_cm=permittivity_f_per_cm,
     )
 
-    thermal_voltage_v = (
-        BOLTZMANN_CONSTANT_J_PER_K
-        * inputs.temperature_k
-        / ELEMENTARY_CHARGE_C
-    )
-
-    vd_v = inputs.v0_v + thermal_voltage_v
-
 
     em_v_cm = calculate_junction_electric_field(
         inputs.v0_v,
         wd_cm,
     )
+
+    delta_phi_b_v = calculate_image_force_barrier_lowering(
+        em_v_cm,
+        permittivity_f_per_cm,
+    )
+
+    ef_v = calculate_fermi_level(
+        inputs.doping_cm3,
+        inputs.temperature_k,
+    )
+
+    phi_b_v = calculate_barrier_height(
+        vd_v,
+        ef_v,
+        delta_phi_b_v,
+    )
+
     cs_f = calculate_semiconductor_capacitance(
         inputs.area_cm2,
         ld_cm,
@@ -109,10 +130,13 @@ def calculate_phase2_summary(
         ld_cm=ld_cm,
         wd_cm=wd_cm,
         em_v_cm=em_v_cm,
+        delta_phi_b_v=delta_phi_b_v,
+        ef_v=ef_v,
         cs_f=cs_f,
         cfb_f=cfb_f,
         vd_v=vd_v,
         phi_ms_v=flatband.phi_ms,
+        phi_b_v=phi_b_v,
         qeff_c_cm2=qeff_c_cm2,
         neff_cm2=neff_cm2,
         

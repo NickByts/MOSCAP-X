@@ -23,7 +23,13 @@ class Phase2Results:
 
     em_v_cm: float
 
+    delta_phi_b_v: float
+
+    ef_v: float
+
     cs_f: float
+
+    phi_b_v: float
 
     cfb_f: float
 
@@ -48,6 +54,14 @@ class Phase2Results:
     @property
     def em(self) -> float:
         return self.em_v_cm
+    
+    @property
+    def delta_phi_b(self) -> float:
+        return self.delta_phi_b_v
+
+    @property
+    def ef(self) -> float:
+        return self.ef_v
 
     @property
     def cs(self) -> float:
@@ -69,6 +83,10 @@ class Phase2Results:
     def neff(self) -> float:
         return self.neff_cm2
 
+    @property
+    def phi_b(self) -> float:
+        return self.phi_b_v
+    
     @property
     def cox(self) -> float:
         return self.cox_f

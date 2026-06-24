@@ -604,6 +604,9 @@ def _render_phase_2_metrics(summary: Phase2Summary) -> None:
         ("Depletion Width", summary.wd, "cm"),
 
         ("Junction Electric Field", summary.em, "V/cm"),
+        ("Image Force Barrier Lowering", summary.delta_phi_b, "V"),
+        ("Fermi Level", summary.ef, "V"),
+        ("Barrier Height", summary.phi_b, "V"),
         ("Semiconductor Capacitance", summary.cs, "F"),
         ("Flat-Band Capacitance", summary.cfb, "F"),
 
@@ -613,9 +616,9 @@ def _render_phase_2_metrics(summary: Phase2Summary) -> None:
     )
     cards = [
         *st.columns(3),
+        *st.columns(4),
         *st.columns(3),
-        *st.columns(3),
-        *st.columns(3),
+        *st.columns(4),
     ]
     for card, (label, value, unit) in zip(cards, metrics):
         card.metric(label, _format_engineering(value, unit))
