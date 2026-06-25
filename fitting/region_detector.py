@@ -98,19 +98,34 @@ def detect_linear_region(
 
     _validate_detection_inputs(voltage, inverse_c2, min_r2)
 
-    boundaries = classify_regions(
-        voltage,
-        inverse_c2,
-    )
-    print(
-        "ACC_END =", boundaries.accumulation_end_index,
-        "DEP_START =", boundaries.depletion_start_index,
-        "DEP_END =", boundaries.depletion_end_index,
-        "INV_START =", boundaries.inversion_start_index,
-    )
+    try:
+        boundaries = classify_regions(
+            voltage,
+            inverse_c2,
+        )
 
-    depletion_start = boundaries.depletion_start_index
-    depletion_end = boundaries.depletion_end_index
+        print(
+            "ACC_END =", boundaries.accumulation_end_index,
+            "DEP_START =", boundaries.depletion_start_index,
+            "DEP_END =", boundaries.depletion_end_index,
+            "INV_START =", boundaries.inversion_start_index,
+        )
+
+        depletion_start = boundaries.depletion_start_index
+        depletion_end = boundaries.depletion_end_index
+
+    except ValueError:
+
+        print(
+            "Physical classifier failed. "
+            "Using fallback linear-region detection."
+        )
+
+        return _fallback_linear_region_detection(
+            voltage,
+            inverse_c2,
+            min_r2=min_r2,
+        )
 
     depletion_voltage = voltage[
         depletion_start:depletion_end + 1
@@ -317,6 +332,76 @@ def _validate_detection_inputs(
     if not np.isfinite(min_r2) or min_r2 < 0.0 or min_r2 > 1.0:
         raise ValueError("min_r2 must be a finite value between 0 and 1.")
 
+def _fallback_linear_region_detection(
+    voltage: np.ndarray,
+    inverse_c2: np.ndarray,
+    min_r2: float,
+) -> LinearRegionResult:
+    """
+    Experimental-data fallback.
+
+    Searches the entire 1/C²-V curve for the most
+    physically linear region without requiring
+    accumulation/inversion plateaus.
+    """
+
+    candidate_sizes = _generate_window_sizes(
+        len(voltage)
+    )
+
+    best_result = None
+    best_r2 = -np.inf
+    best_length = -1
+
+    for window_size in candidate_sizes:
+
+        for start_index in range(
+            0,
+            len(voltage) - window_size + 1,
+        ):
+
+            end_index = start_index + window_size
+
+            fit_result = _fit_window(
+                voltage[start_index:end_index],
+                inverse_c2[start_index:end_index],
+            )
+
+            if fit_result is None:
+                continue
+
+            if fit_result.r2 < min_r2:
+                continue
+
+            length = end_index - start_index
+
+            if (
+                fit_result.r2 > best_r2
+                or
+                (
+                    abs(fit_result.r2 - best_r2)
+                    < R2_TIE_TOLERANCE
+                    and length > best_length
+                )
+            ):
+
+                best_r2 = fit_result.r2
+                best_length = length
+
+                best_result = LinearRegionResult(
+                    start_index=start_index,
+                    end_index=end_index - 1,
+                    slope=fit_result.slope,
+                    intercept=fit_result.intercept,
+                    r2=fit_result.r2,
+                )
+
+    if best_result is None:
+        raise ValueError(
+            "Unable to locate a linear region in the dataset."
+        )
+
+    return best_result
 
 # def _eligible_window_sizes(
 #     window_sizes: Sequence[int],
