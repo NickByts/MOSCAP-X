@@ -6,7 +6,7 @@ import unittest
 
 import numpy as np
 
-from moscap_x.extraction.cox_extractor import calculate_cox
+from extraction.cox_extractor import calculate_cox
 
 
 class CoxExtractorTestCase(unittest.TestCase):

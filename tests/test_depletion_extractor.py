@@ -6,10 +6,10 @@ import unittest
 
 import numpy as np
 
-from moscap_x.extraction.depletion_extractor import (
+from extraction.depletion_extractor import (
     calculate_max_depletion_width,
 )
-from moscap_x.extraction.phase2_validation import (
+from extraction.phase2_validation import (
     ELEMENTARY_CHARGE_C,
     SILICON_PERMITTIVITY_F_PER_CM,
 )

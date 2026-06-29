@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from moscap_x.extraction.oxide_charge_extractor import (
+from extraction.oxide_charge_extractor import (
     calculate_effective_oxide_charge,
 )
 

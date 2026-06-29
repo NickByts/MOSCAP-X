@@ -33,21 +33,19 @@ def extract_doping_concentration(
     slope: float,
     area_cm2: float,
 ) -> DopingResult:
-    """Extract Nd or Na from the 1/C^2-V slope and device area."""
+    """Extract positive Nd or Na from the 1/C^2-V slope magnitude."""
     numeric_slope = _validate_slope(slope)
     numeric_area = _validate_area(area_cm2)
-    
+    slope_magnitude = abs(numeric_slope)
 
     denominator = (
-            ELEMENTARY_CHARGE_C
-            * EPSILON_SI_F_PER_CM
-            * numeric_area**2
-            * numeric_slope
-        )
+        ELEMENTARY_CHARGE_C
+        * EPSILON_SI_F_PER_CM
+        * numeric_area**2
+        * slope_magnitude
+    )
     if denominator == 0.0 or not np.isfinite(denominator):
-            raise ValueError("Doping extraction denominator is zero or non-finite.")
-
-
+        raise ValueError("Doping extraction denominator is zero or non-finite.")
 
     doping_value = 2.0 / denominator
 

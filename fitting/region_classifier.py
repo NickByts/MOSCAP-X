@@ -163,9 +163,10 @@ def _search_boundaries(
     """Find the best physically admissible plateau-linear-plateau split."""
 
     count = coordinate.size
-    min_plateau = max(3, int(np.ceil(0.06 * count)))
+    min_plateau = 1 if relaxed else max(3, int(np.ceil(0.06 * count)))
     min_depletion = max(4, int(np.ceil(0.08 * count)))
-    max_depletion = max(min_depletion, int(np.floor(0.76 * count)))
+    max_fraction = 0.92 if relaxed else 0.76
+    max_depletion = max(min_depletion, int(np.floor(max_fraction * count)))
 
     if starts is None:
         starts = np.arange(min_plateau, count - min_plateau - min_depletion + 1)
@@ -226,11 +227,17 @@ def _search_boundaries(
             width = coordinate[depletion_end] - coordinate[depletion_start]
             progression = middle_slope * width
             plateau_contrast = right_mean - left_mean
-            minimum_slope = max(3.0 * derivative_noise, 0.15)
+            slope_fraction = 0.04 if relaxed else 0.08
+            progression_limit = 0.02 if relaxed else 0.06
+            contrast_limit = 0.02 if relaxed else 0.06
+            minimum_slope = max(
+                3.0 * derivative_noise,
+                slope_fraction * derivative_reference,
+            )
 
-            if middle_slope <= minimum_slope or progression < 0.10:
+            if middle_slope <= minimum_slope or progression < progression_limit:
                 continue
-            if plateau_contrast < 0.10:
+            if not relaxed and plateau_contrast < contrast_limit:
                 continue
 
             reverse_fraction = _interval_mean(
@@ -253,10 +260,14 @@ def _search_boundaries(
             derivative_ratio_limit = 1.25 if relaxed else 0.80
             if middle_r2 < r2_limit or reverse_fraction > reverse_limit:
                 continue
-            if (
+            if not relaxed and (
                 left_derivative_ratio > derivative_ratio_limit
                 or right_derivative_ratio > derivative_ratio_limit
             ):
+                continue
+            if relaxed and (
+                left_derivative_ratio + right_derivative_ratio
+            ) / 2.0 > derivative_ratio_limit:
                 continue
 
             left_rmse = np.sqrt(left_sse / depletion_start)
@@ -282,20 +293,25 @@ def _search_boundaries(
                 abs(predicted_start - left_mean)
                 + abs(predicted_end - right_mean)
             )
+            plateau_contrast_penalty = max(0.0, contrast_limit - plateau_contrast)
             width_fraction = depletion_count / count
+            plateau_weight = 0.65 if relaxed else 1.0
 
             # R-squared contributes, but cannot win by itself: the score also
             # demands flat edge regions, monotonicity, low curvature, adequate
-            # voltage span, and continuity with both physical plateaus.
+            # voltage span, and continuity with any physical plateau evidence.
             score = (
-                1.2 * (left_rmse + right_rmse)
+                plateau_weight * 1.2 * (left_rmse + right_rmse)
                 + 2.8 * middle_rmse
                 + 0.9 * (1.0 - middle_r2)
-                + 0.8 * plateau_slope_ratio
-                + 0.7 * (left_derivative_ratio + right_derivative_ratio)
+                + plateau_weight * 0.8 * plateau_slope_ratio
+                + plateau_weight
+                * 0.7
+                * (left_derivative_ratio + right_derivative_ratio)
                 + 1.3 * reverse_fraction
                 + 0.25 * curvature_ratio
-                + 0.45 * continuity_penalty
+                + plateau_weight * 0.45 * continuity_penalty
+                + plateau_weight * 0.7 * plateau_contrast_penalty
                 + 0.025 / max(width_fraction, 0.01)
                 + 0.025 / max(progression, 0.01)
             )
@@ -366,12 +382,12 @@ def _locate_depletion(
     estimated_end = int(sample[coarse_end])
     search_radius = max(3, int(np.ceil(count / (max_search_points - 1))) * 2)
     starts = np.arange(
-        max(3, estimated_start - search_radius),
+        max(1, estimated_start - search_radius),
         min(count - 1, estimated_start + search_radius) + 1,
     )
     ends = np.arange(
         max(0, estimated_end - search_radius),
-        min(count - 4, estimated_end + search_radius) + 1,
+        min(count - 2, estimated_end + search_radius) + 1,
     )
 
     refined = _search_boundaries(
@@ -494,9 +510,14 @@ def classify_regions(
             0,
             smoothed.size,
         )[0]
-        if abs(trend) * (normalized_voltage[-1] - normalized_voltage[0]) < (
-            0.05 * signal_scale
-        ):
+        trend_progression = abs(trend) * (
+            normalized_voltage[-1] - normalized_voltage[0]
+        )
+        trend_noise_floor = max(
+            3.0 * edge_noise,
+            0.01 * signal_scale,
+        )
+        if trend_progression < trend_noise_floor:
             raise ValueError(
                 "Unable to distinguish accumulation and inversion plateaus."
             )

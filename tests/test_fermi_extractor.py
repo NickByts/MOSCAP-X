@@ -6,8 +6,8 @@ import unittest
 
 import numpy as np
 
-from moscap_x.extraction.fermi_extractor import calculate_fermi_potential
-from moscap_x.extraction.phase2_validation import (
+from extraction.fermi_extractor import calculate_fermi_potential
+from extraction.phase2_validation import (
     BOLTZMANN_CONSTANT_J_PER_K,
     ELEMENTARY_CHARGE_C,
 )
