@@ -6,8 +6,8 @@ import unittest
 
 import numpy as np
 
-from moscap_x.extraction.debye_extractor import calculate_debye_length
-from moscap_x.extraction.phase2_validation import (
+from extraction.debye_extractor import calculate_debye_length
+from extraction.phase2_validation import (
     BOLTZMANN_CONSTANT_J_PER_K,
     ELEMENTARY_CHARGE_C,
     SILICON_PERMITTIVITY_F_PER_CM,

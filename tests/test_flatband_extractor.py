@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from moscap_x.extraction.flatband_extractor import calculate_flatband_voltage
+from extraction.flatband_extractor import calculate_flatband_voltage
 
 
 class FlatbandExtractorTestCase(unittest.TestCase):

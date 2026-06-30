@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import unittest
 
-from moscap_x.extraction.electric_field_extractor import (
+from extraction.electric_field_extractor import (
     calculate_max_electric_field,
 )
-from moscap_x.extraction.phase2_validation import (
+from extraction.phase2_validation import (
     ELEMENTARY_CHARGE_C,
     SILICON_PERMITTIVITY_F_PER_CM,
 )
