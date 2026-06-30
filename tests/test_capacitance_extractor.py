@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import unittest
 
-from moscap_x.extraction.capacitance_extractor import (
+from extraction.capacitance_extractor import (
     calculate_flatband_capacitance,
     calculate_semiconductor_capacitance,
 )
-from moscap_x.extraction.phase2_validation import (
+from extraction.phase2_validation import (
     SILICON_PERMITTIVITY_F_PER_CM,
 )
 
