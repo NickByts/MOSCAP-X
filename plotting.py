@@ -33,54 +33,87 @@ def plot_cv(dataframe: pd.DataFrame) -> Figure:
         dataframe,
         STANDARD_CAPACITANCE_COLUMN,
     )
+
     figure, axis = _create_figure()
+
     axis.scatter(
         voltage,
         capacitance,
         s=1,
         color="#1f77b4",
     )
+
+    _style_axis(
+        axis,
+        title="C-V Characteristics",
+        xlabel="Voltage (V)",
+        ylabel="Capacitance (F)",
+    )
+
     figure.tight_layout()
     return figure
 
 
-def plot_normalized_cv(dataframe: pd.DataFrame) -> Figure:
-    """Create a normalized C-V plot using area normalization when present."""
+def plot_normalized_cv(
+    dataframe: pd.DataFrame,
+    cox: float | None = None,
+) -> Figure:
+    """Create a normalized C-V plot.
+
+    If Cox is provided, the plot is normalized as C/Cox.
+    Otherwise, it falls back to C/Cmax.
+    """
+
     voltage = _numeric_column(dataframe, STANDARD_VOLTAGE_COLUMN)
+    capacitance = _numeric_column(dataframe, STANDARD_CAPACITANCE_COLUMN)
 
     if NORMALIZED_CAPACITANCE_COLUMN in dataframe.columns:
-        y_values = _numeric_column(dataframe, NORMALIZED_CAPACITANCE_COLUMN)
-        ylabel = "Capacitance / Area (F/cm^2)"
+        y_values = _numeric_column(
+            dataframe,
+            NORMALIZED_CAPACITANCE_COLUMN,
+        )
+        ylabel = "Capacitance / Area (F/cm²)"
+
+    elif cox is not None:
+        if cox <= 0:
+            raise ValueError("Cox must be greater than zero.")
+
+        y_values = capacitance / cox
+        ylabel = "Normalized Capacitance (C/Cox)"
+
     else:
-        capacitance = _numeric_column(dataframe, STANDARD_CAPACITANCE_COLUMN)
         max_capacitance = float(np.nanmax(np.abs(capacitance)))
         if max_capacitance == 0.0:
-            raise ValueError("Cannot normalize capacitance when all values are zero.")
+            raise ValueError(
+                "Cannot normalize capacitance when all values are zero."
+            )
+
         y_values = capacitance / max_capacitance
         ylabel = "Normalized Capacitance (C/Cmax)"
 
     valid_mask = np.isfinite(voltage) & np.isfinite(y_values)
+
     if not np.any(valid_mask):
         raise ValueError("No valid numeric data is available for plotting.")
 
     figure, axis = _create_figure()
-    axis.plot(
+
+    axis.scatter(
         voltage[valid_mask],
         y_values[valid_mask],
+        s=1,
         color="#2ca02c",
-        linewidth=0,
-        marker="o",
-        markersize=1.0,
     )
+
     _style_axis(
         axis,
         title="Normalized C-V Characteristics",
         xlabel="Voltage (V)",
         ylabel=ylabel,
     )
+
     figure.tight_layout()
     return figure
-
 
 def plot_inverse_c2(dataframe: pd.DataFrame) -> Figure:
     """Create a 1/C^2 versus voltage plot while excluding zero capacitance."""

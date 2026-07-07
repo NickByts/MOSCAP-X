@@ -93,8 +93,6 @@ def clean_data(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     cleaned = cleaned.replace([np.inf, -np.inf], np.nan)
     cleaned = cleaned.dropna(subset=columns)
-    cleaned = cleaned.drop_duplicates()
-    cleaned = cleaned.sort_values(by=STANDARD_VOLTAGE_COLUMN, kind="mergesort")
     cleaned = cleaned.reset_index(drop=True)
 
     return cleaned
