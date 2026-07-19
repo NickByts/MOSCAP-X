@@ -1,5 +1,15 @@
 """Phase 1B parameter extraction orchestration and plotting."""
+"""
+DEPRECATED
 
+This module implemented the legacy Phase 1B workflow based on
+automatic linear-region detection.
+
+The application now uses the new extraction_new Phase 1 pipeline.
+
+This file is retained temporarily for backward compatibility and
+will be removed after Phase 2 migration is complete.
+"""
 from __future__ import annotations
 
 from collections.abc import Sequence

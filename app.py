@@ -24,11 +24,7 @@ try:
         SUPPORTED_UPLOAD_TYPES,
     )
     from .data_loader import load_csv, load_data
-    from .extraction.results import (
-        ParameterSummary,
-        extract_parameter_summary,
-        plot_linear_region_detection,
-    )
+    
     from .extraction.phase2_summary import (
         Phase2Summary,
         calculate_phase2_summary,
@@ -36,6 +32,10 @@ try:
     from extraction.phase2_models import (
         Phase2Inputs,
         Phase2MaterialProperties,
+    )
+    from .plot_phase1_pipeline import (
+        plot_phase1_cv_regions,
+        plot_phase1_linear_fit,
     )
     from .plotting import plot_cv, plot_inverse_c2, plot_normalized_cv
     from .preprocessing import (
@@ -48,6 +48,11 @@ try:
         dataframe_to_csv_bytes,
         figure_to_png_bytes,
         format_scientific,
+    )
+
+    from .extraction_new.measurement_context import (
+        MeasurementContext,
+        build_measurement_context,
     )
 except ImportError:
     from constants import (
@@ -62,11 +67,7 @@ except ImportError:
         SUPPORTED_UPLOAD_TYPES,
     )
     from data_loader import load_csv, load_data
-    from extraction.results import (
-        ParameterSummary,
-        extract_parameter_summary,
-        plot_linear_region_detection,
-    )
+    
     from extraction.phase2_summary import (
         Phase2Summary,
         calculate_phase2_summary,
@@ -77,11 +78,33 @@ except ImportError:
         convert_capacitance_units,
         validate_data,
     )
+    from plot_phase1_pipeline import (
+        plot_phase1_cv_regions,
+        plot_phase1_linear_fit,
+    )
     from utils import (
         add_normalized_capacitance,
         dataframe_to_csv_bytes,
         figure_to_png_bytes,
         format_scientific,
+    )
+    from extraction_new.measurement_context import (
+        MeasurementContext,
+        build_measurement_context,
+    )
+
+try:
+
+    from .extraction_new.phase1_pipeline import (
+        run_phase1_pipeline,
+        Phase1PipelineResult,
+    )
+
+except ImportError:
+
+    from extraction_new.phase1_pipeline import (
+        run_phase1_pipeline,
+        Phase1PipelineResult,
     )
 
 StatisticsFunction = Callable[[pd.DataFrame], dict[str, int | float]]
@@ -98,7 +121,12 @@ def main() -> None:
     st.title(APP_NAME)
     st.caption(APP_DESCRIPTION)
 
-    device_area_cm2, capacitance_unit, uploaded_file = _render_sidebar()
+    (
+        measurement_context,
+        device_area_cm2,
+        capacitance_unit,
+        uploaded_file,
+    ) = _render_sidebar()
 
     try:
         raw_data, source_name = _load_active_data(uploaded_file)
@@ -178,6 +206,7 @@ def main() -> None:
     )
     phase1b_summary = _render_phase_1b_section(
         cleaned_data,
+        measurement_context,
         device_area_cm2,
     )
     _render_phase_2_section(
@@ -186,29 +215,83 @@ def main() -> None:
         phase1b_summary,
     )
 
-def _render_sidebar() -> tuple[float, str, Any]:
+def _render_sidebar() -> tuple[
+    MeasurementContext,
+    float,
+    str,
+    Any,
+]:
+    """
+    Render the application sidebar.
+
+    Returns
+    -------
+    MeasurementContext
+    Device area
+    Capacitance unit
+    Uploaded file
+    """
+
     with st.sidebar:
-        st.header("Inputs")
+
+        st.header("Measurement Settings")
+
+        material = st.selectbox(
+            "Material",
+            (
+                "Silicon",
+                "Germanium",
+            ),
+        )
+
+        substrate = st.selectbox(
+            "Substrate Type",
+            (
+                "P-Type",
+                "N-Type",
+            ),
+        )
+
+        temperature = st.number_input(
+            "Temperature (K)",
+            value=300.0,
+        )
+
+        st.divider()
+
+        st.header("Device")
+
         device_area_cm2 = st.number_input(
-            "Device Area (cm2)",
+            "Device Area (cm²)",
             min_value=MIN_DEVICE_AREA_CM2,
             value=DEFAULT_DEVICE_AREA_CM2,
             format="%.6g",
-            help="Physical MOS capacitor device area used for F/cm2 scaling.",
         )
+
         capacitance_unit = st.selectbox(
             "Capacitance Unit",
             options=CAPACITANCE_UNITS,
             index=CAPACITANCE_UNITS.index("F"),
-            help="Unit used by the uploaded capacitance column.",
-        )
-        uploaded_file = st.file_uploader(
-            "File Upload",
-            type=list(SUPPORTED_UPLOAD_TYPES),
-            help="Upload CSV or openpyxl-compatible Excel data.",
         )
 
-    return float(device_area_cm2), str(capacitance_unit), uploaded_file
+        uploaded_file = st.file_uploader(
+            "Upload Dataset",
+            type=list(SUPPORTED_UPLOAD_TYPES),
+        )
+
+    context = build_measurement_context(
+        material=material,
+        substrate_type=substrate,
+        
+        temperature_k=temperature,
+    )
+
+    return (
+        context,
+        float(device_area_cm2),
+        str(capacitance_unit),
+        uploaded_file,
+    )
 
 
 def _load_active_data(uploaded_file: Any) -> tuple[pd.DataFrame, str]:
@@ -301,57 +384,29 @@ def _render_plot_section(
 
 
 def _render_phase_1b_section(
-    cleaned_data: pd.DataFrame,
-    device_area_cm2: float,
-) -> ParameterSummary | None:
+    cleaned_data,
+    measurement_context,
+    device_area_cm2,
+) -> Phase1PipelineResult | None:
    
     st.subheader("Phase 1B Parameter Extraction")
-
-    fit_mode = st.radio(
-        "Linear Fit Mode",
-        [
-            "Automatic",
-            "Manual Range",
-        ],
-    ) 
-        
-
-    start_voltage = None
-    end_voltage = None
-
-    if fit_mode == "Manual Range":
-
-        voltage_min = float(
-            cleaned_data["Voltage"].min()
-        )
-
-        voltage_max = float(
-            cleaned_data["Voltage"].max()
-        )
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            start_voltage = st.number_input(
-                "Start Voltage (V)",
-                value=voltage_min,
-            )
-
-        with col2:
-            end_voltage = st.number_input(
-                "End Voltage (V)",
-                value=voltage_max,
-            )
-    
+ 
     try:
-        voltage_array, inverse_c2 = _prepare_phase_1b_arrays(cleaned_data)
-        summary = extract_parameter_summary(
-            voltage_array=voltage_array,
-            inverse_capacitance_squared=inverse_c2,
+        voltage_array = pd.to_numeric(
+            cleaned_data[STANDARD_VOLTAGE_COLUMN],
+            errors="coerce",
+        ).to_numpy(dtype=float)
+
+        capacitance_array = pd.to_numeric(
+            cleaned_data[STANDARD_CAPACITANCE_COLUMN],
+            errors="coerce",
+        ).to_numpy(dtype=float)
+
+        summary = run_phase1_pipeline(
+            voltage=voltage_array,
+            capacitance=capacitance_array,
+            context=measurement_context,
             area_cm2=device_area_cm2,
-            fit_mode=fit_mode,
-            start_voltage=start_voltage,
-            end_voltage=end_voltage,
         )
         
     except Exception as exc:
@@ -359,60 +414,89 @@ def _render_phase_1b_section(
         return None
 
     _render_phase_1b_cards(summary)
+
     _render_plot_section(
-        title="Linear Region Detection Plot",
-        figure_factory=lambda: plot_linear_region_detection(
-            voltage_array,
-            inverse_c2,
-            summary.region,
-            fit_mode=fit_mode,
-            start_voltage=start_voltage,
-            end_voltage=end_voltage,
+        title="Automatic C-V Region Classification",
+        figure_factory=lambda: plot_phase1_cv_regions(
+        features=summary.features,
+        plateau=summary.plateau,
+        linear_region=summary.linear_region,
+    ),
+        download_label="Download Phase1 CV Region Plot",
+        file_name="phase1_cv_regions.png",
+    )
+
+    _render_plot_section(
+        title="Automatic Depletion Linear Regression",
+        figure_factory=lambda: plot_phase1_linear_fit(
+            dataset=summary.dataset,
+            fit=summary.fit,
         ),
-        download_label="Download Linear Region PNG",
-        file_name="moscap_x_linear_region.png",
+        download_label="Download Linear Regression Plot",
+        file_name="phase1_linear_fit.png",
     )
     return summary
 
 
-def _prepare_phase_1b_arrays(
-    cleaned_data: pd.DataFrame,
-) -> tuple[np.ndarray, np.ndarray]:
-    voltage_array = pd.to_numeric(
-        cleaned_data[STANDARD_VOLTAGE_COLUMN],
-        errors="coerce",
-    ).to_numpy(dtype=float)
-    capacitance_array = pd.to_numeric(
-        cleaned_data[STANDARD_CAPACITANCE_COLUMN],
-        errors="coerce",
-    ).to_numpy(dtype=float)
-    inverse_c2 = np.full(capacitance_array.shape, np.nan, dtype=float)
-    valid_capacitance = np.isfinite(capacitance_array) & (
-        capacitance_array != 0.0
-    )
-    inverse_c2[valid_capacitance] = 1.0 / np.square(
-        capacitance_array[valid_capacitance],
-    )
-
-    return voltage_array, inverse_c2
 
 
-def _render_phase_1b_cards(summary: ParameterSummary) -> None:
-    cards = st.columns(5)
-    values = (
-        ("Slope", _format_phase_1b_value(summary.fit.slope)),
-        ("Intercept", _format_phase_1b_value(summary.fit.intercept)),
-        ("R^2", f"{summary.fit.r2:.4f}"),
-        ("Substrate", summary.substrate_type),
-        (
-            summary.doping.substrate_type,
-            f"{_format_phase_1b_value(summary.doping.doping_value)} "
-            f"{summary.doping.units}",
+def _render_phase_1b_cards(
+    summary: Phase1PipelineResult,
+) -> None:
+
+    row1 = st.columns(4)
+
+    row1[0].metric(
+        "Cox",
+        _format_phase_1b_value(
+            summary.cox.cox,
         ),
     )
 
-    for card, (label, value) in zip(cards, values):
-        card.metric(label=label, value=value)
+    row1[1].metric(
+        "V₀",
+        f"{summary.vintercept.vintercept:.4f} V",
+    )
+
+    row1[2].metric(
+        "R²",
+        f"{summary.fit.r2:.5f}",
+    )
+
+    row1[3].metric(
+        summary.doping.substrate_type,
+        _format_phase_1b_value(
+            summary.doping.doping_value,
+        ),
+    )
+
+    row2 = st.columns(3)
+
+    row2[0].metric(
+        "Debye Length",
+        _format_phase_1b_value(
+            summary.debye.debye_length,
+        ),
+    )
+
+    row2[1].metric(
+        "CsFB",
+        _format_phase_1b_value(
+            summary.csfb.csfb,
+        ),
+    )
+
+    row2[2].metric(
+        "CFB",
+        _format_phase_1b_value(
+            summary.cfb.cfb,
+        ),
+    )
+
+    st.metric(
+        "Flat-Band Voltage",
+        f"{summary.vfb.vfb:.4f} V",
+    )
 
 
 def _format_phase_1b_value(value: float) -> str:
@@ -421,7 +505,7 @@ def _format_phase_1b_value(value: float) -> str:
 def _render_phase_2_section(
     cleaned_data: pd.DataFrame,
     device_area_cm2: float,
-    phase1b_summary: ParameterSummary | None,
+    phase1b_summary: Phase1PipelineResult | None,
 ) -> None:
     st.subheader("Phase 2 MOS Parameters")
     if phase1b_summary is None:
@@ -434,29 +518,11 @@ def _render_phase_2_section(
         metal_work_function,
         electron_affinity,
         bandgap,
-        temperature,
-        intrinsic_concentration,
-        epsilon_r,
-        substrate_type,
-        cox,
-        vfb,
         cm,
-        v0,
         conductance_g,
     ) = _render_phase_2_inputs()
 
-    phase2_inputs = {
-        "metal_work_function_ev": metal_work_function,
-        "electron_affinity_ev": electron_affinity,
-        "bandgap_ev": bandgap,
-        "temperature_k": temperature,
-        "substrate_type": substrate_type,
-        "intrinsic_concentration_cm3": intrinsic_concentration,
-        "epsilon_r": epsilon_r,
-        "cox_f": cox,
-        "vfb_v": vfb,
-        "cm_f": cm,
-    }
+    
 
     capacitance_array = pd.to_numeric(
         cleaned_data[STANDARD_CAPACITANCE_COLUMN],
@@ -468,25 +534,29 @@ def _render_phase_2_section(
             Phase2Inputs,
             Phase2MaterialProperties,
         )
-        if substrate_type == "Auto Detect":
-            substrate_type = phase1b_summary.substrate_type
+        
 
         phase2_inputs = Phase2Inputs(
             area_cm2=device_area_cm2,
-            temperature_k=temperature,
+            temperature_k=phase1b_summary.context.temperature_k,
             doping_cm3=phase1b_summary.doping.doping_value,
-            substrate_type=substrate_type,
-            cox_f=cox,
-            vfb_v=vfb,
-            v0_v=v0,
+            substrate_type=phase1b_summary.context.substrate_type,
+            cox_f=phase1b_summary.cox.cox,
+            vfb_v=phase1b_summary.vfb.vfb,
+            v0_v=phase1b_summary.vintercept.vintercept,
             phi_m_ev=metal_work_function,
         )
 
         phase2_materials = Phase2MaterialProperties(
-            intrinsic_concentration_cm3=intrinsic_concentration,
+            intrinsic_concentration_cm3=
+                phase1b_summary.context.intrinsic_carrier_concentration_cm3,
+
             bandgap_ev=bandgap,
+
             electron_affinity_ev=electron_affinity,
-            relative_permittivity=epsilon_r,
+
+            relative_permittivity=
+                phase1b_summary.context.relative_permittivity,
         )
 
         summary = calculate_phase2_summary(
@@ -508,7 +578,7 @@ def _render_phase_2_inputs():
     ):
 
         row1 = st.columns(3)
-        row2 = st.columns(3)
+        row2 = st.columns(2)
         row3 = st.columns(2)
         row4 = st.columns(2)
 
@@ -521,56 +591,21 @@ def _render_phase_2_inputs():
             "Electron Affinity χ (eV)",
             value=4.05,
         )
-        substrate_type = st.selectbox(
-            "Substrate Type",
-            options=[
-                "Auto Detect",
-                "P-Type",
-                "N-Type",
-            ],
-            index=0,
-        )
+        
         bandgap = row1[2].number_input(
             "Bandgap Eg (eV)",
             value=1.12,
         )
 
-        temperature = row2[0].number_input(
-            "Temperature (K)",
-            value=300.0,
-        )
+        
 
-        intrinsic_concentration = row2[1].number_input(
-            "Intrinsic Concentration ni (cm^-3)",
-            value=9.65e9,
-            format="%.4e",
-        )
+       
 
-        epsilon_r = row2[2].number_input(
-            "Relative Permittivity εr",
-            value=11.7,
-        )
-
-        cox = row3[0].number_input(
-            "Cox (F)",
-            value=2.48e-9,
-            format="%.4e",
-        )
-
-        vfb = row3[1].number_input(
-            "Vfb (V)",
-            value=0.94,
-        )
 
         cm = st.number_input(
             "Cm (F)",
             value=1.78e-9,
             format="%.4e",
-        )
-
-        v0 = row4[0].number_input(
-            "V0 (V)",
-            value=0.0,
         )
 
         conductance_g = row4[1].number_input(
@@ -583,14 +618,7 @@ def _render_phase_2_inputs():
         float(metal_work_function),
         float(electron_affinity),
         float(bandgap),
-        float(temperature),
-        float(intrinsic_concentration),
-        float(epsilon_r),
-        substrate_type,
-        float(cox),
-        float(vfb),
         float(cm),
-        float(v0),
         float(conductance_g),
     )
 

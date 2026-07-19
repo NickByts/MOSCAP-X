@@ -13,7 +13,7 @@ try:
         VACUUM_PERMITTIVITY_F_PER_CM,
     )
 except ImportError:
-    from phase2_constants import (
+    from extraction.phase2_constants import (
         BOLTZMANN_CONSTANT_J_PER_K,
         ELEMENTARY_CHARGE_C,
         VACUUM_PERMITTIVITY_F_PER_CM,
